@@ -1,0 +1,26 @@
+{
+  "name": "micro-orm-presentation",
+  "version": "1.0.0",
+  "description": "Shiraz University Micro Orm Presentation",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aminroosta/micro-orm-presentation.git"
+  },
+  "keywords": [
+    "Miro",
+    "Orm"
+  ],
+  "author": "Amin Roosta",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/aminroosta/micro-orm-presentation/issues"
+  },
+  "homepage": "https://github.com/aminroosta/micro-orm-presentation#readme",
+  "dependencies": {
+    "sqlite3": "^3.1.4"
+  }
+}
