@@ -1,0 +1,312 @@
+<!doctype html>
+<html>
+        <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+                <title>No Runtime Reflection No ORM</title>
+
+
+                <link rel="stylesheet" href="css/reveal.css">
+                <link rel="stylesheet" href="css/theme/league.css">
+
+                <!-- Theme used for syntax highlighting of code -->
+                <link rel="stylesheet" href="lib/css/zenburn.css">
+                <style>
+                h1,h2, h3 {
+                  font-family: fantasy!important;
+                }
+                </style>
+
+                <!-- Printing and PDF exports -->
+                <script>
+                        var link = document.createElement( 'link' );
+                        link.rel = 'stylesheet';
+                        link.type = 'text/css';
+                        link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+                        document.getElementsByTagName( 'head' )[0].appendChild( link );
+                </script>
+        </head>
+        <body>
+                <div class="reveal">
+                        <div class="slides">
+
+  <section>
+    <h1 style="position:relative; width:120%; left:-12%; font-family: initial !important;">No Reflection =&gt; No ORM</h2>
+    <p>The journey toward wrting a micro-orm for C++</p>
+    <p>Amin Roosta &lt;<a href="https://twitter.com/amin_roosta">@amin_roosta</a>&gt;</p>
+  </section>
+  <section>
+    <h2>Disclaimer</h2>
+    <img src="lock-free.gif" style="zoom:70%; border:none" />
+    <aside class="notes">My mental model of a full featured ORM.</aside>
+  </section>
+
+  <section>
+    <h2>Object relational mapping (ORM):</h2>
+    <p class="fragment"> A programming technique for converting data between incompatible type systems in object-oriented programming languages.</p>
+    <h2 class="fragment">Reflection:</h2>
+    <p class="fragment">The ability of a computer program to examine, introspect, and modify its own structure and behavior at runtime.</p>
+  </section>
+
+  <section>
+    <h2>Example C#</h2>
+    <pre class="fragment"><code class="cs" data-noescape>
+IEnumerable<PropertyInfo> props = typeof(T).GetProperties();
+foreach(var p in props) {
+    Console.WriteLine(p.Name + ' ' + p.PropertyType.Name)
+}
+    </code></pre>
+    <pre class="fragment"><code class="cs" data-noescape>
+Console.WriteLine(typeof(T).Name);
+    </code></pre>
+    <pre class="fragment"><code class="cs" data-noescape>
+var t = new T();
+PropertyInfo prop = t.GetType().GetProperty("PropertyName",
+                BindingFlags.Public | BindingFlags.Instance);
+if(null != prop &amp;&amp; prop.CanWrite) {
+    prop.SetValue(t, PropertyValue, null);
+}
+    </code></pre>
+  </section>
+
+  <section>
+    <h3>Let's Write a Micro-ORM in C#!</h3>
+    <p class="fragment">It's easier than you think :-)</p>
+    <h3 class="fragment">What about lambda expressions?!</h3>
+    <pre class="fragment"><code class="cs" data-noescape>
+using System.Linq.Expressions;
+Expression&lt;Func&lt;int, int, int&gt;&gt; expression = (a,b) =&gt; a + b;
+
+BinaryExpression body = (BinaryExpression)expression.Body;
+Console.WriteLine(expression.Body); // (a + b)
+
+ParameterExpression left = (ParameterExpression)body.Left;
+ParameterExpression right = (ParameterExpression)body.Right;
+
+Console.WriteLine("{0}, {1}, {2}, {3}",
+  left.Name, body.NodeType, right.Name, body.Type);
+/* a, Add, b, System.Int32 */ </code></pre>
+  </section>
+
+  <section>
+    <h3>Javascript  <span style="font-family:initial;">( ͡° ͜ʖ ͡°)</span></h3>
+    <pre class="fragment"><code class="cs" data-noescape>
+db.run(`create table if not exists user (
+               id integer primary key autoincrement not null,
+               age int,
+               name text,
+               weight real
+            );`); </code></pre>
+    <pre class="fragment"><code class="cs" data-noescape>
+var stmt = db.prepare(`insert into user (age,name,weight) values (?,?,?);`);
+
+stmt.run(21,  'joey',     80);
+stmt.run(22,  'chandler', 65);
+stmt.run(23,  'monica',   50);
+stmt.run(24,  'ross',     75);
+stmt.run(25,  'phoebe',   45);
+stmt.run(26,  'rachel',   50);
+
+stmt.finalize(); </code></pre>
+    <pre class="fragment"><code class="cs" data-noescape>
+db.each('select * from user', function(err, row) {
+    console.log(row.age, row.name, row.weight);
+});
+</code></pre>
+  </section>
+
+  <section>
+    <h3>C/C++ ಠ_ಠ</h3>
+    <pre class="fragment"><code class="cs" data-noescape>
+sqlite3* db;
+sqlite3_open(":memory:", &amp;db);
+
+const char * query = "create table if not exists user ("
+          "   _id integer primary key autoincrement not null,"
+          "   age int,"
+          "   name text,"
+          "   weight real"
+          ");";
+sqlite3_exec(db, query , 0, 0, nullptr);
+</code></pre>
+    <pre class="fragment"><code class="cs" data-noescape>
+sqlite3_stmt *stmt;
+sqlite3_prepare(db, "insert into user (age,name,weight) values (?,?,?);",
+                -1, &amp;stmt, 0);
+if(sqlite3_bind_int(stmt, 1, 21) != SQLITE_OK) return 1;
+sqlite3_bind_text (stmt, 2, "chandler", -1, SQLITE_STATIC);
+sqlite3_bind_double(stmt, 3, 70.0);
+</code></pre>
+    <pre class="fragment"><code class="cs" data-noescape>
+sqlite3_step(stmt);
+sqlite3_reset(stmt);
+sqlite3_finalize(stmt);
+</code></pre>
+  </section>
+
+  <section>
+    <h3>(⊙︿⊙)</h3>
+    <pre><code class="cs" data-noescape>
+sqlite3_prepare( db, "select * from user", -1, &stmt, 0);
+while(sqlite3_step(stmt) == SQLITE_ROW) {
+  int age = sqlite3_column_int(stmt, 1);
+  sqlite3_column_bytes(stmt, 2);
+  string name = string(reinterpret_cast<char const *>(sqlite3_column_text(stmt, 2)));
+  double weight = sqlite3_column_double(stmt, 3);
+  cout << age << ", " << name << ", " << weight << endl;
+}
+sqlite3_finalize(stmt);
+</code></pre>
+    <h2 class="fragment"><br/>Can we do better?</h2>
+    <h2 class="fragment">YES!</h2>
+  </section>
+
+  <section>
+    <h3>C++ Templates</h3>
+<pre class="fragment"><code class="c++" data-noescape>
+template&lt;typename T&gt;
+void Swap(T &amp; a, T &amp; b) { //"&amp;" passes parameters by reference
+   T temp = b;
+   b = a;
+   a = temp;
+}
+</code></pre>
+<pre class="fragment"><code class="c++" data-noescape>
+template &lt;unsigned int n&gt;
+struct factorial {
+    enum { value = n * factorial<n - 1>::value };
+};
+
+template &lt;&gt;
+struct factorial&lt;0&gt; {
+    enum { value = 1 };
+};
+
+// factorial<0>::value would yield 1.
+// factorial<4>::value would yield 24. </code></pre>
+  </section>
+
+  <section>
+    <h3>C++ Metaprogramming</h3>
+    <pre><code style="max-height:800px;" class="c++" data-noescape>
+template &lt;int p, int i&gt;
+class check_prime {
+  public:
+   enum { prim = ( (p % i) &amp;&amp; check_prime&lt;p, i - 1&gt;::prim ) };
+};
+
+template &lt;int p&gt;
+class check_prime&lt;p, 1&gt; {
+  public:
+      enum { prim = 1 };
+};
+
+template&lt;int n&gt;
+class is_prime {
+  public:
+  enum { value = check_prime&lt;n,n-1&gt;::prim };
+};
+
+int main() {
+  bool is_prime_17 = is_prime&lt;17&gt;::value; // 1
+  bool is_prime_20 = is_prime&lt;20&gt;::value; // 0
+}
+</code></pre>
+  </section>
+
+  <section>
+    <h2>Why?</h3>
+    <img src="linker.png" style="zoom:70%; border:none" />
+  </section>
+
+  <section>
+    <h3>Solution</h3>
+    <h3><a href="https://github.com/aminroosta/sqlite_modern_cpp">Sqlite Modern Cpp</a></h3>
+    <img src="google.png" style="zoom:70%; border:none" />
+  </section>
+
+  <section>
+    <h3>(▰˘◡˘▰)</h3>
+    <img src="modern-cpp-1.png" style="zoom:80%; border:none" />
+    <p>Pretty easy</p>
+  </section>
+
+  <section>
+    <h3>ಠ_ಥ</h3>
+    <img src="modern-cpp-2.png" style="zoom:80%; border:none" />
+    <p>Hard but doable in C++</p>
+  </section>
+
+  <section>
+    <h3>(ಥ﹏ಥ)</h3>
+    <img src="modern-cpp-3.png" style="zoom:80%; border:none" />
+    <p>Needs Magic!</p>
+  </section>
+
+  <section>
+    <h3>Magic ¯\(°_o)/¯</h3>
+    <img src="magic.png" style="zoom:55%; border:none" />
+  </section>
+
+  <section>
+    <h3>More Magic ¯\_(ツ)_/¯</h3>
+    <img src="more-magic.png" style="zoom:50%; border:none" />
+  </section>
+
+  <section>
+    <h1>QA?</h1>
+  </section>
+
+                        </div>
+                </div>
+
+                <script src="lib/js/head.min.js"></script>
+                <script src="js/reveal.js"></script>
+
+                <script>
+                        // More info https://github.com/hakimel/reveal.js#configuration
+                        Reveal.initialize({
+
+                                controls: false, // Display controls in the bottom right corner
+                                progress: true, // Display a presentation progress bar
+                                history: true, // Push each slide change to the browser history
+                                keyboard: true, // Enable keyboard shortcuts for navigation
+                                overview: true, // Enable the slide overview mode
+                                center: true, // Vertical centering of slides
+                                touch: true,
+                                loop: false,
+                                rtl: false,
+                                shuffle: false,
+                                fragments: true, // Turns fragments on and off globally
+                                help: true, // Flags if we should show a help overlay when the questionmark key is pressed
+                                showNotes: false, // Flags if speaker notes should be visible to all viewers
+                                autoSlide: 0,
+                                autoSlideStoppable: true, // Stop auto-sliding after user input
+                                autoSlideMethod: Reveal.navigateNext,
+                                mouseWheel: false,
+                                hideAddressBar: true,
+                                previewLinks: false, // Opens links in an iframe preview overlay
+                                transition: 'default', // none/fade/slide/convex/concave/zoom
+                                transitionSpeed: 'default', // default/fast/slow
+                                backgroundTransition: 'default', // none/fade/slide/convex/concave/zoom
+                                viewDistance: 3, // Number of slides away from the current that are visible
+                                //parallaxBackgroundImage: 'bg.jpg',
+                                //parallaxBackgroundSize: '2559px 1510px', // CSS syntax, e.g. "2100px 900px"
+                                // Number of pixels to move the parallax background per slide
+                                // - Calculated automatically unless specified
+                                // - Set to 0 to disable movement along an axis
+                                parallaxBackgroundHorizontal: null,
+                                parallaxBackgroundVertical: null,
+
+                                // More info https://github.com/hakimel/reveal.js#dependencies
+                                dependencies: [
+                                        { src: 'plugin/markdown/marked.js' },
+                                        { src: 'plugin/markdown/markdown.js' },
+                                        { src: 'plugin/notes/notes.js', async: true },
+                                        { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+                                ]
+                        });
+                </script>
+        </body>
+</html>
