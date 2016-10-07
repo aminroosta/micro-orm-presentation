@@ -111,12 +111,6 @@ namespace ConsoleApplication
             _query = query;
             _db = db;
         }
-        private Dictionary<string,string> _method_mappings = new Dictionary<string,string> {
-            {"GreaterThan",">"},
-            {"LessThan","<"},
-            {"StartsWith","text"},
-            {"Double","real"},
-        };
         public QueryBuilder<T> Where(Expression<Func<T,Object>> expr) {
             string field = null;
             string method = null;
